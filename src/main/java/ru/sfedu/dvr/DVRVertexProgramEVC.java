@@ -37,7 +37,6 @@ import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.javatuples.Pair;
-import org.javatuples.Triplet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,25 +50,23 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.Iterator;
 
-public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMessage> {
+public class DVRVertexProgramEVC implements VertexProgram<DVRVertexProgramEVC.PhotonMessage> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DVRVertexProgram.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DVRVertexProgramEVC.class);
 
     @SuppressWarnings("WeakerAccess")
-    public static final String IMAGE_COLORS_OUT_PARAM_STRING = "ru.sfedu.test.DVRVertexProgram.imageColors";
+    public static final String IMAGE_COLORS_OUT_PARAM_STRING = "ru.sfedu.test.DVRVertexProgramEVC.imageColors";
 
-    private static final String P1_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgram.P1";
-    private static final String DX_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgram.DX";
-    private static final String DY_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgram.DY";
-    private static final String ORIGIN_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgram.origin";
-    private static final String HEIGHT_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgram.height";
-    private static final String WIDTH_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgram.width";
-    private static final String SAMPLING_STEP_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgram.samplingStep";
-    private static final String PIXEL_DISTANCE_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgram.pixelDistance";
-    private static final String SLICE_DISTANCE_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgram.sliceDistance";
-    private static final String SCENE_BOX_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgram.sceneBox";
+    private static final String P1_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgramEVC.P1";
+    private static final String DX_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgramEVC.DX";
+    private static final String DY_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgramEVC.DY";
+    private static final String ORIGIN_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgramEVC.origin";
+    private static final String HEIGHT_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgramEVC.height";
+    private static final String WIDTH_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgramEVC.width";
+    private static final String SAMPLING_STEP_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgramEVC.samplingStep";
+    private static final String SCENE_BOX_IN_PARAM_STRING = "ru.sfedu.test.DVRVertexProgramEVC.sceneBox";
 
-    private static final String VOTE_TO_HALT = "ru.sfedu.test.DVRVertexProgram.voteToHalt";
+    private static final String VOTE_TO_HALT = "ru.sfedu.test.DVRVertexProgramEVC.voteToHalt";
 
     public static final PureTraversal<Vertex, Edge> DEFAULT_EDGE_TRAVERSAL = new PureTraversal<>(__.outE().asAdmin());
 
@@ -81,8 +78,6 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
     private Point3d origin;
     private Integer height;
     private Integer width;
-    private Number pixelDistance;
-    private Number sliceDistance;
     private Number samplingStep;
     private AABB sceneBox;
 
@@ -102,7 +97,7 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
             MemoryComputeKey.of(VOTE_TO_HALT, Operator.and, false, true)
     ));
 
-    private DVRVertexProgram() {
+    private DVRVertexProgramEVC() {
 
     }
 
@@ -138,16 +133,6 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
         else
             this.samplingStep = 0.1;
 
-        if (configuration.containsKey(PIXEL_DISTANCE_IN_PARAM_STRING))
-            this.pixelDistance = (Number) configuration.getProperty(PIXEL_DISTANCE_IN_PARAM_STRING);
-        else
-            this.pixelDistance = 1.0;
-
-        if (configuration.containsKey(SLICE_DISTANCE_IN_PARAM_STRING))
-            this.sliceDistance = (Number) configuration.getProperty(SLICE_DISTANCE_IN_PARAM_STRING);
-        else
-            this.sliceDistance = 1.0;
-
 
         this.height = configuration.getInteger(HEIGHT_IN_PARAM_STRING, 480);
         this.width = configuration.getInteger(WIDTH_IN_PARAM_STRING, 640);
@@ -174,10 +159,6 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
             configuration.setProperty(SCENE_BOX_IN_PARAM_STRING, sceneBox);
         if (this.samplingStep != null)
             configuration.setProperty(SAMPLING_STEP_IN_PARAM_STRING, samplingStep);
-        if (this.pixelDistance != null)
-            configuration.setProperty(PIXEL_DISTANCE_IN_PARAM_STRING, pixelDistance);
-        if (this.sliceDistance != null)
-            configuration.setProperty(SLICE_DISTANCE_IN_PARAM_STRING, sliceDistance);
     }
 
     @Override
@@ -198,7 +179,7 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
     @Override
     public VertexProgram<PhotonMessage> clone() {
         try {
-            final DVRVertexProgram clone = (DVRVertexProgram) super.clone();
+            final DVRVertexProgramEVC clone = (DVRVertexProgramEVC) super.clone();
 
             if (null != this.edgeTraversal)
                 clone.edgeTraversal = this.edgeTraversal.clone();
@@ -229,8 +210,8 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
 
         boolean voteToHalt = true;
 
-        Triplet<AABB, int[], Boolean> volume =
-                (Triplet<AABB, int[], Boolean>) vertex.property("volume").value();
+        Pair<AABB, ArrayList<EquidistantVolumeCell>> volume =
+                (Pair<AABB, ArrayList<EquidistantVolumeCell>>) vertex.property("volume").value();
 
         if (memory.isInitialIteration()) {
             // является ли ячейка объема, хранимая в вершине, граничной,
@@ -268,7 +249,7 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
                             PhotonMessage photon = new PhotonMessage("Msg" + i, r, i);
                             photon.setAccColor(ambientColor);
 
-                            traceRay(photon, volume);
+                            traceRay(photon, volume.getValue1());
 
                             if (!photon.isInsignificant()) {
                                 if (forwardPhoton(photon, vertex, messenger))
@@ -287,7 +268,7 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
             while (photonsIterator.hasNext()) {
                 final PhotonMessage nextPhoton = photonsIterator.next();
 
-                traceRay(nextPhoton, volume);
+                traceRay(nextPhoton, volume.getValue1());
 
                 if (!nextPhoton.isInsignificant()) {
                     if (forwardPhoton(nextPhoton, vertex, messenger))
@@ -341,7 +322,9 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
         return false;
     }
 
-    private void traceRay(PhotonMessage photon, final Triplet<AABB, int[], Boolean> subVolume) {
+    private void traceRay(PhotonMessage photon, final ArrayList<EquidistantVolumeCell> volumeCells) {
+        List<Pair<Double, EquidistantVolumeCell>> hittedCells = new ArrayList<>();
+
         Point3d q = new Point3d();
 
         Double currentSamplePointT;
@@ -350,80 +333,44 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
 
         Double lastSamplePointT = photon.lastSamplePointT();
 
-        subVolume.getValue0().intersectRay(ray, q);
+        for (EquidistantVolumeCell volumeCell : volumeCells) {
+            if (volumeCell.getAABB().intersectRay(ray, q)) {
+                double t = ray.getTFar();
 
-        if (lastSamplePointT == null)
-            lastSamplePointT = new Double(ray.getTNear());
+                if (hittedCells.isEmpty())
+                    hittedCells.add(Pair.with(t, volumeCell));
+                else {
+                    int index = 0;
 
-        currentSamplePointT = lastSamplePointT;
+                    for (Pair<Double, EquidistantVolumeCell> hittedCell : hittedCells) {
+                        if (hittedCell.getValue0() < t)
+                            index++;
+                    }
 
-        Double exitPointT = new Double(ray.getTFar());
+                    hittedCells.add(index, Pair.with(t, volumeCell));
+                }
+            }
+        }
 
-        Boolean isEmpty = subVolume.getValue2();
+        if (!hittedCells.isEmpty()) {
+            if (lastSamplePointT == null) {
+                hittedCells.get(0).getValue1().getAABB().intersectRay(ray, q);
 
-        if (isEmpty) {
-            currentSamplePointT += (Math.floor((exitPointT - currentSamplePointT) / samplingStep.doubleValue()) + 1) * samplingStep.doubleValue();
-        } else {
-            Point3d currentSamplePoint = ray.getPoitByT(currentSamplePointT);
+                lastSamplePointT = new Double(ray.getTNear());
+            }
 
-            while (exitPointT > currentSamplePointT) {
-                int cellMinIndices[] = {
-                        (int) Math.floor(Math.abs(currentSamplePoint.getX() - subVolume.getValue0().min().getX()) / pixelDistance.doubleValue()),
-                        (int) Math.floor(Math.abs(currentSamplePoint.getY() - subVolume.getValue0().min().getY()) / pixelDistance.doubleValue()),
-                        (int) Math.floor(Math.abs(currentSamplePoint.getZ() - subVolume.getValue0().min().getZ()) / sliceDistance.doubleValue())};
+            currentSamplePointT = lastSamplePointT;
 
-                int subVolumeSizes[] = {
-                        (int) Math.round(Math.abs(subVolume.getValue0().max().getX() - subVolume.getValue0().min().getX()) / pixelDistance.doubleValue()) + 1,
-                        (int) Math.round(Math.abs(subVolume.getValue0().max().getY() - subVolume.getValue0().min().getY()) / pixelDistance.doubleValue()) + 1,
-                        (int) Math.round(Math.abs(subVolume.getValue0().max().getZ() - subVolume.getValue0().min().getZ()) / sliceDistance.doubleValue()) + 1};
+            int currentCell = 0;
 
-                for (int i = 0; i < 3; i++)
-                    if (cellMinIndices[i] >= subVolumeSizes[i] - 1)
-                        cellMinIndices[i] = subVolumeSizes[i] - 2;
+            while (currentCell < hittedCells.size()) {
+                Pair<Double, EquidistantVolumeCell> currentHittedCell = hittedCells.get(currentCell);
 
-                Point3d cellMin = new Point3d(
-                        subVolume.getValue0().min().getX() + cellMinIndices[0] * pixelDistance.doubleValue(),
-                        subVolume.getValue0().min().getY() + cellMinIndices[1] * pixelDistance.doubleValue(),
-                        subVolume.getValue0().min().getZ() + cellMinIndices[2] * sliceDistance.doubleValue()
-                );
+                if (currentHittedCell.getValue0() > currentSamplePointT) {
+                    Point3d currentSamplePoint = ray.getPoitByT(currentSamplePointT);
 
-                Point3d cellMax = new Point3d(
-                        subVolume.getValue0().min().getX() + (cellMinIndices[0] + 1) * pixelDistance.doubleValue(),
-                        subVolume.getValue0().min().getY() + (cellMinIndices[1] + 1) * pixelDistance.doubleValue(),
-                        subVolume.getValue0().min().getZ() + (cellMinIndices[2] + 1) * sliceDistance.doubleValue()
-                );
-
-                int subVolumeIntensities[] = subVolume.getValue1();
-
-                // V000 -> V100 -> V010 -> V110
-                Point4i fIs = new Point4i(
-                        subVolumeIntensities[cellMinIndices[0] + cellMinIndices[1] * subVolumeSizes[0] + cellMinIndices[2] * subVolumeSizes[1] * subVolumeSizes[0]],
-                        subVolumeIntensities[cellMinIndices[0] + 1 + cellMinIndices[1] * subVolumeSizes[0] + cellMinIndices[2] * subVolumeSizes[1] * subVolumeSizes[0]],
-                        subVolumeIntensities[cellMinIndices[0] + (cellMinIndices[1] + 1) * subVolumeSizes[0] + cellMinIndices[2] * subVolumeSizes[1] * subVolumeSizes[0]],
-                        subVolumeIntensities[cellMinIndices[0] + 1 + (cellMinIndices[1] + 1) * subVolumeSizes[0] + cellMinIndices[2] * subVolumeSizes[1] * subVolumeSizes[0]]
-                );
-                // V001 -> V101 -> V011 -> V111
-                Point4i bIs = new Point4i(
-                        subVolumeIntensities[cellMinIndices[0] + cellMinIndices[1] * subVolumeSizes[0] + (cellMinIndices[2] + 1) * subVolumeSizes[1] * subVolumeSizes[0]],
-                        subVolumeIntensities[cellMinIndices[0] + 1 + cellMinIndices[1] * subVolumeSizes[0] + (cellMinIndices[2] + 1) * subVolumeSizes[1] * subVolumeSizes[0]],
-                        subVolumeIntensities[cellMinIndices[0] + (cellMinIndices[1] + 1) * subVolumeSizes[0] + (cellMinIndices[2] + 1) * subVolumeSizes[1] * subVolumeSizes[0]],
-                        subVolumeIntensities[cellMinIndices[0] + 1 + (cellMinIndices[1] + 1) * subVolumeSizes[0] + (cellMinIndices[2] + 1) * subVolumeSizes[1] * subVolumeSizes[0]]
-                );
-
-                AABB cellAABB = new AABB(cellMin, cellMax);
-
-                cellAABB.intersectRay(ray, q);
-
-                while (ray.getTFar() > currentSamplePointT) {
-                    if (cellAABB.sqDistanceToPoint(currentSamplePoint) < EPSILON) {
-                        double xWeight = Math.abs((currentSamplePoint.getX() - cellMin.getX()) / pixelDistance.doubleValue());
-                        double yWeight = Math.abs((currentSamplePoint.getY() - cellMin.getY()) / pixelDistance.doubleValue());
-                        double zWeight = Math.abs((currentSamplePoint.getZ() - cellMin.getZ()) / sliceDistance.doubleValue());
-
-                        Double interpolatedValue = ((fIs.getX() * (1 - xWeight) + fIs.getY() * xWeight) * (1 - yWeight)
-                                + (fIs.getZ() * (1 - xWeight) + fIs.getW() * xWeight) * yWeight) * (1 - zWeight)
-                                + ((bIs.getX() * (1 - xWeight) + bIs.getY() * xWeight) * (1 - yWeight)
-                                + (bIs.getZ() * (1 - xWeight) + bIs.getW() * xWeight) * yWeight) * zWeight;
+                    if (currentHittedCell.getValue1().getAABB().sqDistanceToPoint(currentSamplePoint) < EPSILON) {
+                        Double interpolatedValue = currentHittedCell.getValue1().getTrilinearInterpolation(currentSamplePoint);
 
                         photon.accumulateCT(phongShading(ctf(interpolatedValue)), otf(interpolatedValue));
 
@@ -432,22 +379,18 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
                     }
 
                     currentSamplePointT += samplingStep.doubleValue();
-
-                    currentSamplePoint = ray.getPoitByT(currentSamplePointT);
-                }
-
-                if (photon.isInsignificant())
-                    break;
+                } else
+                    currentCell++;
             }
-        }
 
-        photon.setLastSamplePointT(currentSamplePointT);
-        photon.setExitPointT(exitPointT);
+            photon.setLastSamplePointT(currentSamplePointT);
+            photon.setExitPointT(hittedCells.get(hittedCells.size() - 1).getValue0());
+        }
     }
 
     private Color3f ctf(Double volumeValue) {
         if (volumeValue < EPSILON)
-            return new Color3f(0.0f, 0.0f, 0.0f);
+            return new Color3f(0.0f, 0.01f, 0.0f);
 
         return new Color3f(0.005f, 0.001f, 0.01f);
     }
@@ -611,7 +554,7 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
     public static final class Builder extends AbstractVertexProgramBuilder<Builder> {
 
         private Builder() {
-            super(DVRVertexProgram.class);
+            super(DVRVertexProgramEVC.class);
         }
 
         public Builder height(final Integer height) {
@@ -673,22 +616,6 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
                 this.configuration.setProperty(SAMPLING_STEP_IN_PARAM_STRING, step);
             else
                 this.configuration.clearProperty(SAMPLING_STEP_IN_PARAM_STRING);
-            return this;
-        }
-
-        public Builder pixelDistance(final Number distance) {
-            if (null != distance)
-                this.configuration.setProperty(PIXEL_DISTANCE_IN_PARAM_STRING, distance);
-            else
-                this.configuration.clearProperty(PIXEL_DISTANCE_IN_PARAM_STRING);
-            return this;
-        }
-
-        public Builder sliceDistance(final Number distance) {
-            if (null != distance)
-                this.configuration.setProperty(SLICE_DISTANCE_IN_PARAM_STRING, distance);
-            else
-                this.configuration.clearProperty(SLICE_DISTANCE_IN_PARAM_STRING);
             return this;
         }
 

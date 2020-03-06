@@ -9,7 +9,7 @@
     <version>1.0-SNAPSHOT</version>
 
     <properties>
-        <tinkerpop.version>3.4.0</tinkerpop.version>
+        <tinkerpop.version>3.4.6</tinkerpop.version>
         <slf4j.version>1.7.25</slf4j.version>
 
         <test.main.class>ru.sfedu.dvr.TinkerGraphApp</test.main.class>
