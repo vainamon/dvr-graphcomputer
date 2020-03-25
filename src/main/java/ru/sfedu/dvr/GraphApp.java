@@ -91,6 +91,146 @@ public class GraphApp {
     /**
      * Adds the vertices, edges, and properties to the graph.
      */
+    public void createElementsAS(byte[] rawData, int xGridSize, int yGridSize, int zGridSize,
+                                  double pixelDistance, double sliceDistance,
+                                  int volumeDimension) {
+        try {
+            // naive check if the graph was previously created
+            if (g.V(0).has("volume").hasNext()) {
+                if (supportsTransactions) {
+                    g.tx().rollback();
+                }
+                return;
+            }
+            LOGGER.info("creating elements");
+
+            ArrayList<Pair<Vertex, AABB>> vertices = new ArrayList<>();
+
+            for (int i = 0; i < zGridSize - 1; i = i + volumeDimension) {
+                for (int j = 0; j < yGridSize - 1; j = j + volumeDimension) {
+                    for (int k = 0; k < xGridSize - 1; k = k + volumeDimension) {
+
+                        Point3d min = new Point3d(k * pixelDistance, j * pixelDistance, i * sliceDistance);
+
+                        int maxii = (i + volumeDimension < zGridSize) ? volumeDimension : zGridSize - 1 - i;
+                        int maxjj = (j + volumeDimension < yGridSize) ? volumeDimension : yGridSize - 1 - j;
+                        int maxkk = (k + volumeDimension < xGridSize) ? volumeDimension : xGridSize - 1 - k;
+
+                        int N = (maxii + 1) * (maxjj + 1) * (maxkk + 1);
+
+                        int [] subVolume = new int[(maxii + 1) * (maxjj + 1) * (maxkk + 1)];
+
+                        Boolean isEmpty = true;
+                        Double mean = 0.0;
+                        Double variance = 0.0;
+                        int maxValue = Integer.MIN_VALUE;
+
+                        for (int ii = 0; ii < maxii + 1; ii++) {
+                            for (int jj = 0; jj < maxjj + 1; jj++) {
+                                for (int kk = 0; kk < maxkk + 1; kk++) {
+                                    int value = rawData[(kk + k) + (jj + j) * xGridSize + (ii + i) * yGridSize * xGridSize] & 0xff;
+
+                                    /* copy value from input volume to node sub volume */
+                                    subVolume[kk + jj * (maxkk + 1) + ii * (maxjj + 1) * (maxkk + 1)] = value;
+
+                                    maxValue = Integer.max(value, maxValue);
+
+                                    mean += value / Double.valueOf(N);
+                                }
+                            }
+                        }
+
+                        VolumeProperties volumeProperties = new VolumeProperties();
+
+                        if (maxValue == 0)
+                            volumeProperties.isEmpty = true;
+                        else {
+                            volumeProperties.isEmpty = false;
+
+                            for (int ii = 0; ii < maxii + 1; ii++) {
+                                for (int jj = 0; jj < maxjj + 1; jj++) {
+                                    for (int kk = 0; kk < maxkk + 1; kk++) {
+                                        int value = subVolume[kk + jj * (maxkk + 1) + ii * (maxjj + 1) * (maxkk + 1)];
+
+                                        variance += Math.pow((value - mean) / Double.valueOf(maxValue), 2);
+                                    }
+                                }
+                            }
+
+                            volumeProperties.normalizedDeviation = Math.sqrt(variance / Double.valueOf(N - 1));
+                        }
+
+                        Point3d max = new Point3d((k + maxkk) * pixelDistance,
+                                (j + maxjj) * pixelDistance, (i + maxii) * sliceDistance);
+
+                        vertices.add(Pair.with(g.addV().property("volume", Triplet.with(new AABB(min, max), subVolume, volumeProperties)).next(),
+                                new AABB(min, max)));
+                    }
+                }
+            }
+
+            int zDim = (zGridSize - 1) / volumeDimension + (((zGridSize - 1) % volumeDimension) == 0 ? 0 : 1);
+            int yDim = (yGridSize - 1) / volumeDimension + (((yGridSize - 1) % volumeDimension) == 0 ? 0 : 1);
+            int xDim = (xGridSize - 1) / volumeDimension + (((xGridSize - 1) % volumeDimension) == 0 ? 0 : 1);
+
+            for (int i = 0; i < zDim; i++) {
+                for (int j = 0; j < yDim; j++) {
+                    for (int k = 0; k < xDim; k++) {
+                        ArrayList<Triplet<Integer,Integer,Integer>> neighbors = new ArrayList<>();
+
+                        neighbors.add(Triplet.with(k - 1, j - 1, i + 1));
+                        neighbors.add(Triplet.with(k - 1, j, i + 1));
+                        neighbors.add(Triplet.with(k - 1, j + 1, i + 1));
+                        neighbors.add(Triplet.with(k - 1, j + 1, i));
+
+                        neighbors.add(Triplet.with(k, j - 1, i + 1));
+                        neighbors.add(Triplet.with(k, j, i + 1));
+                        neighbors.add(Triplet.with(k, j + 1, i + 1));
+                        neighbors.add(Triplet.with(k, j + 1, i));
+
+                        neighbors.add(Triplet.with(k + 1, j, i + 1));
+                        neighbors.add(Triplet.with(k + 1, j, i));
+                        neighbors.add(Triplet.with(k + 1, j + 1, i + 1));
+                        neighbors.add(Triplet.with(k + 1, j + 1, i));
+                        neighbors.add(Triplet.with(k + 1, j - 1, i + 1));
+
+                        for (Triplet<Integer,Integer,Integer> neighbor: neighbors) {
+                            if ((neighbor.getValue0() >= 0) && (neighbor.getValue0() < xDim)
+                                    && ((neighbor.getValue1() >= 0) && (neighbor.getValue1() < yDim))
+                                    && (neighbor.getValue2() < zDim)) {
+
+                                final Pair<Vertex, AABB> originV = vertices.get(k + j * xDim + i * xDim * yDim);
+
+                                final Pair<Vertex, AABB> neighborV = vertices.get(neighbor.getValue0()
+                                        + neighbor.getValue1() * xDim
+                                        + neighbor.getValue2() * xDim * yDim);
+
+                                g.V(originV.getValue0()).as("a")
+                                        .V(neighborV.getValue0()).addE("link1").property("aabb", neighborV.getValue1()).from("a")
+                                        .next();
+                                g.V(neighborV.getValue0()).as("b")
+                                        .V(originV.getValue0()).addE("link2").property("aabb", originV.getValue1()).from("b")
+                                        .next();
+                            }
+                        }
+                    }
+                }
+            }
+
+            LOGGER.info("Dim  " + xDim + "; V count " + g.V().count().next() + "; E count " + g.E().count().next());
+
+            if (supportsTransactions) {
+                g.tx().commit();
+            }
+
+        } catch (Exception e) {
+            LOGGER.error(e.getMessage(), e);
+            if (supportsTransactions) {
+                g.tx().rollback();
+            }
+        }
+    }
+
     public void createElementsRaw(byte[] rawData, int xGridSize, int yGridSize, int zGridSize,
                                double pixelDistance, double sliceDistance,
                                int volumeDimension) {
@@ -380,14 +520,17 @@ public class GraphApp {
                 return;
             }
 
-            DVRVertexProgram dvrvp = DVRVertexProgram.build()
+            DVRVertexProgramAS dvrvp = DVRVertexProgramAS.build()
                     .height(height)
                     .width(width)
                     .P1(P1)
                     .DX(DX)
                     .DY(DY)
                     .origin(origin)
-                    .samplingStep(samplingStep)
+                    //.samplingStep(samplingStep)
+                    .minSamplingStep(samplingStep / 100)
+                    .maxSamplingStep(samplingStep)
+                    .p(2)
                     .pixelDistance(pixelDistance)
                     .sliceDistance(sliceDistance)
                     .sceneBox(volumeBox)
@@ -397,8 +540,8 @@ public class GraphApp {
 
             LOGGER.info("DVR runtime = " + result.memory().getRuntime() + "ms; iteration: " + result.memory().getIteration());
 
-            if (result.memory().exists(DVRVertexProgram.IMAGE_COLORS_OUT_PARAM_STRING)) {
-                List<Pair<Pair<Integer, Integer>, Color3f>> colors = result.memory().get(DVRVertexProgram.IMAGE_COLORS_OUT_PARAM_STRING);
+            if (result.memory().exists(DVRVertexProgramAS.IMAGE_COLORS_OUT_PARAM_STRING)) {
+                List<Pair<Pair<Integer, Integer>, Color3f>> colors = result.memory().get(DVRVertexProgramAS.IMAGE_COLORS_OUT_PARAM_STRING);
 
                 final BufferedImage image =
                         new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
@@ -458,7 +601,8 @@ public class GraphApp {
 
             // build the graph structure
             //createElementsEVC(buffer, xGridSize, yGridSize, zGridSize, pixelDistance, sliceDistance, 4);
-            createElementsRaw(buffer, xGridSize, yGridSize, zGridSize, pixelDistance, sliceDistance, 64);
+            //createElementsRaw(buffer, xGridSize, yGridSize, zGridSize, pixelDistance, sliceDistance, 32);
+            createElementsAS(buffer, xGridSize, yGridSize, zGridSize, pixelDistance, sliceDistance, 32);
 
             Point3d min = new Point3d(0, 0, 0);
 
@@ -468,7 +612,7 @@ public class GraphApp {
 
             AABB volumeBox = new AABB(min, max);
 
-            render(1024, 768, pixelDistance, sliceDistance, 0.01, volumeBox);
+            render(1024, 768, pixelDistance, sliceDistance, 0.001, volumeBox);
 
             // close the graph
             closeGraph();
