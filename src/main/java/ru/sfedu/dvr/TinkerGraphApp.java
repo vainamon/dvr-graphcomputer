@@ -30,6 +30,7 @@ public class TinkerGraphApp extends GraphApp {
 
     public static void main(String[] args) {
         final String fileName = (args != null && args.length > 0) ? args[0] : null;
+        LOGGER.info("filename " +fileName);
         final TinkerGraphApp app = new TinkerGraphApp(fileName);
         app.runApp();
     }

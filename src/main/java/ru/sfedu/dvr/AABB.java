@@ -16,6 +16,11 @@ public class AABB implements Serializable {
     private Point3d min;
     private Point3d max;
 
+    private AABB()
+    {
+        // for kryo
+    }
+
     public AABB(Point3d min, Point3d max) {
         this.min = min;
         this.max = max;

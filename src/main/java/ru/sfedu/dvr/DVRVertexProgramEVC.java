@@ -367,7 +367,7 @@ public class DVRVertexProgramEVC implements VertexProgram<DVRVertexProgramEVC.Ph
                 Pair<Double, EquidistantVolumeCell> currentHittedCell = hittedCells.get(currentCell);
 
                 if (currentHittedCell.getValue0() > currentSamplePointT) {
-                    Point3d currentSamplePoint = ray.getPoitByT(currentSamplePointT);
+                    Point3d currentSamplePoint = ray.getPointByT(currentSamplePointT);
 
                     if (currentHittedCell.getValue1().getAABB().sqDistanceToPoint(currentSamplePoint) < EPSILON) {
                         Double interpolatedValue = currentHittedCell.getValue1().getTrilinearInterpolation(currentSamplePoint);
@@ -424,6 +424,7 @@ public class DVRVertexProgramEVC implements VertexProgram<DVRVertexProgramEVC.Ph
 
             if (neighborAABB.intersectRay(photon.ray(), p)) {
                 if ((Math.abs(photon.ray().getTNear() - photon.exitPointT()) < EPSILON)
+                        && (photon.ray().getTNear() < photon.ray().getTFar())
                         && (photon.ray().getTNear() < tmin)) {
                     tmin = photon.ray().getTNear();
                     edgeMin = edge;

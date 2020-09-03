@@ -36,7 +36,6 @@ import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
-import org.apache.tinkerpop.gremlin.structure.util.reference.ReferenceEdge;
 import org.apache.tinkerpop.gremlin.structure.util.reference.ReferenceFactory;
 import org.javatuples.Pair;
 import org.javatuples.Triplet;
@@ -169,7 +168,7 @@ public class DVRVertexProgramAS implements VertexProgram<DVRVertexProgramAS.Phot
         this.height = configuration.getInteger(HEIGHT_IN_PARAM_STRING, 480);
         this.width = configuration.getInteger(WIDTH_IN_PARAM_STRING, 640);
 
-        this.memoryComputeKeys.add(MemoryComputeKey.of(IMAGE_COLORS_OUT_PARAM_STRING, Operator.addAll, true, false));
+        this.memoryComputeKeys.add(MemoryComputeKey.of(IMAGE_COLORS_OUT_PARAM_STRING, Operator.addAll, false, false));
     }
 
     @Override
@@ -325,14 +324,15 @@ public class DVRVertexProgramAS implements VertexProgram<DVRVertexProgramAS.Phot
 
     @Override
     public boolean terminate(final Memory memory) {
-        final boolean voteToHalt = memory.get(VOTE_TO_HALT);
-
-        memory.set(VOTE_TO_HALT, true);
+        final boolean voteToHalt = memory.<Boolean>get(VOTE_TO_HALT);
 
         if (voteToHalt)
             return true;
-        else
+        else {
+            memory.set(VOTE_TO_HALT, true);
+
             return false;
+        }
     }
 
     @Override
@@ -396,7 +396,7 @@ public class DVRVertexProgramAS implements VertexProgram<DVRVertexProgramAS.Phot
                         minSamplingStep.doubleValue());
             }
 
-            Point3d currentSamplePoint = ray.getPoitByT(currentSamplePointT);
+            Point3d currentSamplePoint = ray.getPointByT(currentSamplePointT);
 
             while (exitPointT > currentSamplePointT) {
                 int cellMinIndices[] = {
@@ -446,7 +446,7 @@ public class DVRVertexProgramAS implements VertexProgram<DVRVertexProgramAS.Phot
 
                 cellAABB.intersectRay(ray, q);
 
-                while (ray.getTFar() > currentSamplePointT) {
+                while (ray.getTFar() >= currentSamplePointT) {
                     if (cellAABB.sqDistanceToPoint(currentSamplePoint) < EPSILON) {
                         double xWeight = Math.abs((currentSamplePoint.getX() - cellMin.getX()) / pixelDistance.doubleValue());
                         double yWeight = Math.abs((currentSamplePoint.getY() - cellMin.getY()) / pixelDistance.doubleValue());
@@ -464,15 +464,16 @@ public class DVRVertexProgramAS implements VertexProgram<DVRVertexProgramAS.Phot
                                     minSamplingStep.doubleValue());
 
                             if (photon.isMaxStepping) {
-                                photon.isMaxStepping = false;
                                 // возврат сообщения-фотона
-                                if (subVolume.getValue0().sqDistanceToPoint(ray.getPoitByT(currentSamplePointT - maxSamplingStep.doubleValue())) < EPSILON) {
+                                if (subVolume.getValue0().sqDistanceToPoint(ray.getPointByT(currentSamplePointT - maxSamplingStep.doubleValue())) < EPSILON) {
+                                    photon.isMaxStepping = false;
                                     photon.adaptiveStepPointT = currentSamplePointT;
                                     currentSamplePointT = currentSamplePointT - maxSamplingStep.doubleValue() + samplingStep;
                                     photon.direction = PhotonDirection.FROM_BACK_TO_FRONT;
                                     break;
                                 } else {
-                                    if (sceneBox.sqDistanceToPoint(ray.getPoitByT(currentSamplePointT - maxSamplingStep.doubleValue())) < EPSILON) {
+                                    if (sceneBox.sqDistanceToPoint(ray.getPointByT(currentSamplePointT - maxSamplingStep.doubleValue())) < EPSILON) {
+                                        photon.isMaxStepping = false;
                                         photon.adaptiveStepPointT = currentSamplePointT;
                                         photon.direction = PhotonDirection.BACKWARD;
                                         photon.setLastSamplePointT(currentSamplePointT - maxSamplingStep.doubleValue());
@@ -484,6 +485,7 @@ public class DVRVertexProgramAS implements VertexProgram<DVRVertexProgramAS.Phot
                             if (!photon.isMaxStepping) {
                                 if (photon.adaptiveStepPointT <= currentSamplePointT) {
                                     photon.isMaxStepping = true;
+                                    samplingStep = maxSamplingStep.doubleValue();
                                     photon.direction = PhotonDirection.FORWARD;
                                 } else
                                     samplingStep = Math.max(minSamplingStep.doubleValue() +
@@ -501,7 +503,7 @@ public class DVRVertexProgramAS implements VertexProgram<DVRVertexProgramAS.Phot
 
                     currentSamplePointT += samplingStep;
 
-                    currentSamplePoint = ray.getPoitByT(currentSamplePointT);
+                    currentSamplePoint = ray.getPointByT(currentSamplePointT);
                 }
 
                 if (photon.isInsignificant())
@@ -561,6 +563,7 @@ public class DVRVertexProgramAS implements VertexProgram<DVRVertexProgramAS.Phot
 
                 if (neighborAABB.intersectRay(photon.ray(), p)) {
                     if ((Math.abs(photon.ray().getTNear() - photon.exitPointT()) < EPSILON)
+                            && (photon.ray().getTNear() < photon.ray().getTFar())
                             && (photon.ray().getTNear() < tmin)) {
                         tmin = photon.ray().getTNear();
                         edgeMin = edge;

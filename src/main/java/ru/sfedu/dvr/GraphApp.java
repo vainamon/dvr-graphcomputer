@@ -7,14 +7,18 @@ import org.apache.tinkerpop.gremlin.process.computer.ComputerResult;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.io.IoCore;
+import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoMapper;
+import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoReader;
+import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoWriter;
 import org.apache.tinkerpop.gremlin.structure.util.GraphFactory;
+import org.apache.tinkerpop.shaded.kryo.Kryo;
 import org.javatuples.Triplet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
-import java.io.FileInputStream;
-import java.io.File;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,7 +55,7 @@ public class GraphApp {
      * graph instance is initialized.
      */
     public GraphTraversalSource openGraph() throws ConfigurationException {
-        LOGGER.info("opening graph");
+        LOGGER.info("opening graph, properties: " + propFileName);
         conf = new PropertiesConfiguration(propFileName);
         graph = GraphFactory.open(conf);
         g = graph.traversal();
@@ -484,10 +488,9 @@ public class GraphApp {
         Vector3d up = new Vector3d(0,1,0);
 
         camera.set(cameraOrigin, target, up);
-        //camera.slide(20,-20, -20);
-        camera.slide(50,-150, 100);
-        camera.pitch(-20);
-        camera.yaw(-50);
+        camera.slide(-32,-32, -50);
+        //camera.slide(-105,-128, 20);
+        //camera.slide(-345,-340, 320); /* zeiss */
 
         Point3d P1 = new Point3d(4,3,-5);
         Point3d P2 = new Point3d(-4,3,-5);
@@ -528,7 +531,7 @@ public class GraphApp {
                     .DY(DY)
                     .origin(origin)
                     //.samplingStep(samplingStep)
-                    .minSamplingStep(samplingStep / 100)
+                    .minSamplingStep(samplingStep / 5000)
                     .maxSamplingStep(samplingStep)
                     .p(2)
                     .pixelDistance(pixelDistance)
@@ -536,6 +539,18 @@ public class GraphApp {
                     .sceneBox(volumeBox)
                     .create();
 
+//            DVRVertexProgram dvrvp = DVRVertexProgram.build()
+//                    .height(height)
+//                    .width(width)
+//                    .P1(P1)
+//                    .DX(DX)
+//                    .DY(DY)
+//                    .origin(origin)
+//                    .samplingStep(samplingStep)
+//                    .pixelDistance(pixelDistance)
+//                    .sliceDistance(sliceDistance)
+//                    .sceneBox(volumeBox)
+//                    .create();
             ComputerResult result = graph.compute().program(dvrvp).submit().get();
 
             LOGGER.info("DVR runtime = " + result.memory().getRuntime() + "ms; iteration: " + result.memory().getIteration());
@@ -587,22 +602,44 @@ public class GraphApp {
                 createSchema();
             }
 
-            //int xGridSize = 64, yGridSize = 64, zGridSize = 64;
-            int xGridSize = 512, yGridSize = 256, zGridSize = 256;
+            int xGridSize = 64, yGridSize = 64, zGridSize = 64;
+//            int xGridSize = 512, yGridSize = 256, zGridSize = 256;
+//            int xGridSize = 256, yGridSize = 256, zGridSize = 256;
+//            int xGridSize = 680, yGridSize = 680, zGridSize = 680;
             double pixelDistance = 1.0, sliceDistance = 1.0;
 
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 
-            //FileInputStream fis = new FileInputStream(new File(classLoader.getResource("neghip_64x64x64_uint8.raw").getFile()));
-            FileInputStream fis = new FileInputStream(new File(classLoader.getResource("golfball0_0-512x256x256.raw").getFile()));
+            FileInputStream fis = new FileInputStream(new File(classLoader.getResource("neghip_64x64x64_uint8.raw").getFile()));
+//            FileInputStream fis = new FileInputStream(new File(classLoader.getResource("golfball0_0-512x256x256.raw").getFile()));
+//            FileInputStream fis = new FileInputStream(new File(classLoader.getResource("bonsai_256x256x256_uint8.raw").getFile()));
+//            FileInputStream fis = new FileInputStream(new File(classLoader.getResource("zeiss_680x680x680_uint8.raw").getFile()));
             byte [] buffer = new byte[fis.available()];
             fis.read(buffer);
             fis.close();
 
             // build the graph structure
-            //createElementsEVC(buffer, xGridSize, yGridSize, zGridSize, pixelDistance, sliceDistance, 4);
-            //createElementsRaw(buffer, xGridSize, yGridSize, zGridSize, pixelDistance, sliceDistance, 32);
-            createElementsAS(buffer, xGridSize, yGridSize, zGridSize, pixelDistance, sliceDistance, 32);
+//            createElementsEVC(buffer, xGridSize, yGridSize, zGridSize, pixelDistance, sliceDistance, 4);
+//              createElementsRaw(buffer, xGridSize, yGridSize, zGridSize, pixelDistance, sliceDistance, 32);
+            createElementsAS(buffer, xGridSize, yGridSize, zGridSize, pixelDistance, sliceDistance, 2);
+
+//            File file = new File("zeiss-graph-128.kryo");
+//            OutputStream fos = new FileOutputStream(file);
+//            GryoMapper mapper = GryoMapper.build()
+//                    .addCustom(ru.sfedu.dvr.AABB.class)
+//                    .addCustom(javax.vecmath.Point3d.class)
+//                    .addCustom(ru.sfedu.dvr.VolumeProperties.class).create();
+//            GryoWriter writer = GryoWriter.build().mapper(mapper).create();
+//            writer.writeGraph(fos, graph);
+
+//            File file = new File("golfball-graph.kryo");
+//            InputStream fis = new FileInputStream(file);
+//            GryoMapper mapper = GryoMapper.build()
+//                    .addCustom(ru.sfedu.dvr.AABB.class)
+//                    .addCustom(javax.vecmath.Point3d.class)
+//                    .addCustom(ru.sfedu.dvr.VolumeProperties.class).create();
+//            GryoReader reader = GryoReader.build().mapper(mapper).create();
+//            reader.readGraph(fis, graph);
 
             Point3d min = new Point3d(0, 0, 0);
 
@@ -612,7 +649,7 @@ public class GraphApp {
 
             AABB volumeBox = new AABB(min, max);
 
-            render(1024, 768, pixelDistance, sliceDistance, 0.001, volumeBox);
+            render(1024, 768, pixelDistance, sliceDistance, 0.5, volumeBox);
 
             // close the graph
             closeGraph();

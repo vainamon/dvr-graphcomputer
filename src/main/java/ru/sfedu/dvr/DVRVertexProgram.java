@@ -364,7 +364,7 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
         if (isEmpty) {
             currentSamplePointT += (Math.floor((exitPointT - currentSamplePointT) / samplingStep.doubleValue()) + 1) * samplingStep.doubleValue();
         } else {
-            Point3d currentSamplePoint = ray.getPoitByT(currentSamplePointT);
+            Point3d currentSamplePoint = ray.getPointByT(currentSamplePointT);
 
             while (exitPointT > currentSamplePointT) {
                 int cellMinIndices[] = {
@@ -414,7 +414,7 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
 
                 cellAABB.intersectRay(ray, q);
 
-                while (ray.getTFar() > currentSamplePointT) {
+                while (ray.getTFar() >= currentSamplePointT) {
                     if (cellAABB.sqDistanceToPoint(currentSamplePoint) < EPSILON) {
                         double xWeight = Math.abs((currentSamplePoint.getX() - cellMin.getX()) / pixelDistance.doubleValue());
                         double yWeight = Math.abs((currentSamplePoint.getY() - cellMin.getY()) / pixelDistance.doubleValue());
@@ -433,7 +433,7 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
 
                     currentSamplePointT += samplingStep.doubleValue();
 
-                    currentSamplePoint = ray.getPoitByT(currentSamplePointT);
+                    currentSamplePoint = ray.getPointByT(currentSamplePointT);
                 }
 
                 if (photon.isInsignificant())
@@ -481,6 +481,7 @@ public class DVRVertexProgram implements VertexProgram<DVRVertexProgram.PhotonMe
 
             if (neighborAABB.intersectRay(photon.ray(), p)) {
                 if ((Math.abs(photon.ray().getTNear() - photon.exitPointT()) < EPSILON)
+                        && (photon.ray().getTNear() < photon.ray().getTFar())
                         && (photon.ray().getTNear() < tmin)) {
                     tmin = photon.ray().getTNear();
                     edgeMin = edge;

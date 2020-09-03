@@ -45,7 +45,7 @@ public class Ray implements Serializable {
         return this.tFar;
     }
 
-    public Point3d getPoitByT(double _t) {
+    public Point3d getPointByT(double _t) {
         Vector3d _d = new Vector3d(d);
         _d.scale(_t);
         _d.add(P);
